@@ -1,5 +1,5 @@
 require "minitest/autorun"
-require "otask"
+load "bin/otask"
 
 class TestOtask < MiniTest::Unit::TestCase
   def test_sanity
