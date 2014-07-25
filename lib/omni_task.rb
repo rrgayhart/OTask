@@ -1,18 +1,19 @@
-require 'optparse'
+require 'optparse' 
 require 'ostruct'
 require 'date'
+require 'rubygems'
 require 'appscript';include Appscript
 require 'amatch';include Amatch
 require 'chronic'
 require 'rdoc'
 
-class OTask
+class OmniTask
   attr_reader :options
 
   def initialize(arguments, stdin)
     @arguments = arguments
     @stdin = stdin
-
+    
     # Set defaults
     @options = OpenStruct.new
     @options.verbose = false
@@ -32,35 +33,37 @@ class OTask
         puts "Start at #{DateTime.now}\n\n"
         puts "--Options--------------------"
         output_options if @options.verbose # [Optional]
-        puts "--Task-Properties------------"
+        puts "--Task-Properties------------" 
       end
       process_arguments
       process_command
-
+      
       puts "\nFinished at #{DateTime.now}" if @options.verbose
     end
   end
-
+  
   protected
-
+  
     def parsed_options?
-
+      
       # Specify options
       opts = OptionParser.new
       opts.on( '-h', '--help', 'Display this screen' ) do
         puts opts
         puts "\nNotes are entered in parenthesis: This is my title (This is the note)"
+        puts "Tags are added with hashmarks #like #this. They can appear anywhere in the title string, but will be removed from the output."
+        puts "Note: natural-language date parsing will work better if you install the Chronic Ruby gem (`sudo gem install chronic`)." unless TodoUtils.new.use_chronic
         exit(0)
       end
       opts.on('-V', '--verbose', 'Verbose logging')    { @options.verbose = true }
       opts.on('-q', '--quiet', 'Run silently')      { @options.quiet = true }
       opts.on('-g', '--growl', 'Use Growl notifications')  { @options.growl = true }
       # TO DO - add additional options
-
+            
       opts.parse!(@arguments) rescue return false
-
+      
       process_options
-      true
+      true      
     end
 
     # Performs post-parse processing on options
@@ -76,9 +79,9 @@ class OTask
         end
       end
     end
-
+    
     def output_options
-      @options.marshal_dump.each do |name, val|
+      @options.marshal_dump.each do |name, val|        
         puts "  #{name}: #{val}"
       end
     end
@@ -88,12 +91,12 @@ class OTask
       # TO DO - implement your real logic here
       @arguments.length == 1 ? true : false
     end
-
+    
     # Setup the arguments
     def process_arguments
       input = @stdin.stat.size > 0 ? @stdin.read : nil
       titlestring = @arguments.join(' ')
-
+      
       # check for trailing ! (flagged task)
       @options.flagged = titlestring.match(/ !\Z/).nil? ? false : true
       titlestring.sub!(/ !\Z/,'') if @options.flagged
@@ -109,9 +112,9 @@ class OTask
       titlestring.sub!(/ @[^ ]+/,'') unless contextmatch.nil?
 
       # start/due date
-      # startmatch = titlestring.match(/ s(?:tart)?\(([^\)]+)\)/)
-      # @options.start = startmatch.nil? ? false : startmatch[1]
-      # titlestring.sub!(/ s(tart)?\(([^\)]+)\)/,'') unless startmatch.nil?
+      startmatch = titlestring.match(/ s(?:tart)?\(([^\)]+)\)/)
+      @options.start = startmatch.nil? ? false : startmatch[1]
+      titlestring.sub!(/ s(tart)?\(([^\)]+)\)/,'') unless startmatch.nil?
       duematch = titlestring.match(/ d(?:ue)?\(([^\)]+)\)/)
       @options.due = duematch.nil? ? false : duematch[1]
       titlestring.sub!(/ d(ue)?\(([^\)]+)\)/,'') unless duematch.nil?
@@ -124,9 +127,9 @@ class OTask
 
 
       @options.notes = ''
-      if titlestring =~ / \(([^\)]+)\)/
+      if titlestring =~ /\(([^\)]+)\)/
         @options.notes = $1
-        titlestring.sub!(/ \(([^\)]+)\)/,'')
+        titlestring.gsub!(/\(([^\)]+)\)/,'')
       end
       if @options.notes == '' && !input.nil? # check for piped input on STDIN
         @options.notes = input
@@ -136,14 +139,14 @@ class OTask
       @options.name = titlestring
     end
 
-    def usge_and_exit
-      puts 'Usage: otask [options] "Task string [#proj @context (note) start() due()]"'
+    def usage_and_exit
+      puts 'Usage: otask [options] "Task string"'
       puts
       puts "For help use: otask -h"
 
       exit(0)
     end
-
+    
     def output_version
       puts "#{File.basename(__FILE__)} version #{VERSION}"
     end
@@ -185,7 +188,7 @@ class OTask
       return highscore['name']
 
     end
-
+    
     def parse_date(datestring)
       days = 0
       if datestring =~ /^\+(\d+)$/
@@ -198,7 +201,7 @@ class OTask
       # return parsed =~ /1969/ ? false : parsed
       return newdate
     end
-
+    
     def growl(title, message)
       app("Growl").notify(:title => title, :description => message, :application_name => "OTask", :with_name => "Alert") if @options.growl
     end
@@ -217,7 +220,7 @@ class OTask
         ctxs = dd.flattened_contexts.name.get
         @props['context'] = best_match(ctxs,@options.context)
       end
-      # @props['start_date'] = parse_date(@options.start) if @options.start
+      @props['start_date'] = parse_date(@options.start) if @options.start
       @props['due_date'] = parse_date(@options.due) if @options.due
       @props['creation_date'] = parse_date(@options.creation) if @options.creation
       @props['note'] = @options.notes unless @options.notes == ''
@@ -233,9 +236,8 @@ class OTask
           puts o
         end
       end
-      @props.each do |name, val|
+      @props.each do |name, val|        
         puts "  #{name}: #{val}"
       end if @options.verbose
     end
 end
-
